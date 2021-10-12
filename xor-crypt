@@ -1,0 +1,402 @@
+//
+// Created by imper on 10/10/21.
+//
+
+#ifndef XOR_CRYPT
+#define XOR_CRYPT
+
+#include <string>
+#include <unistd.h>
+#include <stdexcept>
+#include <log-console>
+#include <cstring>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+
+#define log (_log << log_console::l_lock << log_console::l_localtime << l_location << color::yellow)
+#define err (_err << log_console::l_lock << log_console::l_localtime << l_location << color::red)
+
+#define endline color::reset << log_console::l_endent
+
+#define encrypt_byte(elem, password, iterator, max_iterator) { elem ^= password[iterator++]; iterator %= max_iterator; }
+
+typedef unsigned char byte;
+typedef unsigned long size_t;
+
+template <typename string_t>
+concept string_type = std::is_same_v<string_t, std::string> || std::is_same_v<string_t, std::wstring>;
+
+
+template <character char_t>
+size_t char_t_strlen(const char_t* str)
+{
+	size_t size = 0;
+	for (; *str; ++size, ++str);
+	return size;
+}
+
+byte* copy_data(const void* data, size_t size)
+{
+	auto* tmp = static_cast<const byte*>(data);
+	auto* res = new byte[size];
+	
+	for (size_t i = 0; i < size; ++i)
+		res[i] = tmp[i];
+	
+	return res;
+}
+
+
+class source
+{
+public:
+	source(const source&) = delete;
+	
+	source(source&&) = default;
+	
+	[[nodiscard]] ssize_t get_last_read() const;
+	
+	operator bool() const;
+	
+	virtual size_t available() = 0;
+	
+	virtual ssize_t read(void* data, size_t size) const;
+	
+	void close();
+
+protected:
+	friend class xor_decrypt;
+	
+	ssize_t last_read = -1;
+	int fd;
+	
+	explicit source(int fd) : fd(fd)
+	{ }
+	
+	static log_console _log;
+	static log_console _err;
+};
+
+log_console source::_log(stdout);
+log_console source::_err(stderr);
+
+ssize_t source::get_last_read() const
+{
+	return this->last_read;
+}
+
+source::operator bool() const
+{
+	return this->last_read > 0;
+}
+
+ssize_t source::read(void* data, size_t size) const
+{
+	ssize_t read = ::read(this->fd, data, size);
+	if (read < 0)
+	{
+		char error[128];
+		::strerror_r(errno, error, 128);
+		err << "error " << errno << " in read() " << color::italic << error << endline;
+	}
+	return read;
+}
+
+void source::close()
+{
+	if (this->fd > 0)
+	{
+		if (::close(this->fd) < 0)
+		{
+			char error[128];
+			::strerror_r(errno, error, 128);
+			err << "error " << errno << " in close() " << color::italic << error << endline;
+		}
+		this->fd = -1;
+	}
+}
+
+
+class empty_source : public source
+{
+public:
+	empty_source() : source(-1)
+	{ }
+	
+	size_t available() override
+	{
+		return 0;
+	}
+	
+	ssize_t read(void*, size_t) const override
+	{
+		return -1;
+	}
+};
+
+
+class file_source : public source
+{
+public:
+	explicit file_source(const char* filename) : source(::fopen(filename, "rb")->_fileno)
+	{ }
+	
+	explicit file_source(const std::string& filename) : file_source(filename.c_str())
+	{ }
+	
+	[[nodiscard]] size_t available() override
+	{
+		struct stat st{ };
+		::fstat(this->fd, &st);
+		return st.st_size;
+	}
+	
+	ssize_t read(void* data, size_t size) const override
+	{
+		return source::read(data, size);
+	}
+};
+
+
+class destination
+{
+public:
+	
+	destination(const destination&) = delete;
+	
+	destination(destination&&) = default;
+	
+	[[nodiscard]] ssize_t get_last_write() const;
+	
+	operator bool() const;
+	
+	virtual ssize_t write(const void* data, size_t size) const;
+	
+	void close();
+
+protected:
+	friend class xor_encrypt;
+	
+	ssize_t last_write = -1;
+	int fd;
+	
+	explicit destination(int fd) : fd(fd)
+	{ }
+	
+	static log_console _log;
+	static log_console _err;
+};
+
+log_console destination::_log(stdout);
+log_console destination::_err(stderr);
+
+ssize_t destination::get_last_write() const
+{
+	return this->last_write;
+}
+
+destination::operator bool() const
+{
+	return this->last_write > 0;
+}
+
+ssize_t destination::write(const void* data, size_t size) const
+{
+	ssize_t wrote = ::write(this->fd, data, size);
+	if (wrote < 0)
+	{
+		char error[128];
+		::strerror_r(errno, error, 128);
+		err << "error " << errno << " in write() " << color::italic << error << endline;
+	}
+	return wrote;
+}
+
+void destination::close()
+{
+	if (this->fd > 0)
+	{
+		if (::close(this->fd) < 0)
+		{
+			char error[128];
+			::strerror_r(errno, error, 128);
+			err << "error " << errno << " in close() " << color::italic << error << endline;
+		}
+		this->fd = -1;
+	}
+}
+
+
+class empty_destination : public destination
+{
+public:
+	empty_destination() : destination(-1)
+	{ }
+	
+	ssize_t write(const void*, size_t) const override
+	{
+		return -1;
+	}
+};
+
+class file_destination : public destination
+{
+public:
+	explicit file_destination(const char* filename) : destination(::fopen(filename, "wb")->_fileno)
+	{ }
+	
+	explicit file_destination(const std::string& filename) : file_destination(filename.c_str())
+	{ }
+	
+	ssize_t write(const void* data, size_t size) const override
+	{
+		return destination::write(data, size);
+	}
+};
+
+
+class xor_crypt
+{
+public:
+	void set_password(const void* password, size_t size);
+
+protected:
+	xor_crypt(const void* password, size_t size);
+	
+	byte* passwd;
+	size_t passwd_size;
+	size_t passwd_iter{ };
+};
+
+xor_crypt::xor_crypt(const void* password, size_t size) : passwd(copy_data(password, size)), passwd_size(size)
+{ }
+
+void xor_crypt::set_password(const void* password, size_t size)
+{
+	this->passwd = copy_data(password, size);
+	this->passwd_size = size;
+}
+
+
+class xor_decrypt : public xor_crypt
+{
+public:
+	xor_decrypt(const void* password, size_t size, source& source);
+	
+	xor_decrypt(const std::string& password, source& source);
+	
+	ssize_t read(void* data, size_t size);
+	
+	void close_fd();
+
+private:
+	friend inline xor_decrypt& operator>>(const std::string& source_name, xor_decrypt& xd);
+	
+	friend inline xor_decrypt& operator>>(xor_decrypt& xd, std::string& res);
+	
+	source* src;
+};
+
+xor_decrypt::xor_decrypt(const void* password, size_t size, source& source = *new empty_source) : xor_crypt(password, size), src(&source)
+{ }
+
+xor_decrypt::xor_decrypt(const std::string& password, source& source = *new empty_source) : xor_decrypt(password.c_str(), password.size(), source)
+{ }
+
+ssize_t xor_decrypt::read(void* data, size_t size)
+{
+	ssize_t res = src->read(data, size);
+	
+	for (byte* i = static_cast<byte*>(data); i < static_cast<byte*>(data) + res; ++i)
+	encrypt_byte(*i, this->passwd, this->passwd_iter, this->passwd_size)
+	
+	return res;
+}
+
+void xor_decrypt::close_fd()
+{
+	src->close();
+}
+
+inline xor_decrypt& operator>>(const std::string& source_name, xor_decrypt& xd)
+{
+	xd.src = new file_source(source_name);
+	return xd;
+}
+
+inline xor_decrypt& operator>>(xor_decrypt& xd, std::string& res)
+{
+	size_t size = xd.src->available();
+	res.resize(size);
+	xd.read(res.data(), size);
+	return xd;
+}
+
+
+class xor_encrypt : public xor_crypt
+{
+public:
+	xor_encrypt(const void* password, size_t size, destination& destination);
+	
+	xor_encrypt(const std::string& password, destination& destination);
+	
+	ssize_t write(const void* data, size_t size);
+	
+	void close_fd();
+
+private:
+	friend inline xor_encrypt& operator<<(const std::string& dest_name, xor_encrypt& xe);
+	
+	template <character char_t>
+	friend inline xor_encrypt& operator<<(xor_encrypt& xe, const std::basic_string<char_t>& res);
+	
+	template <character char_t>
+	friend inline xor_encrypt& operator<<(xor_encrypt& xe, const char_t* res);
+	
+	destination* dest;
+};
+
+xor_encrypt::xor_encrypt(const void* password, size_t size, destination& destination = *new empty_destination) : xor_crypt(password, size),
+																												 dest(&destination)
+{ }
+
+xor_encrypt::xor_encrypt(const std::string& password, destination& destination = *new empty_destination) :
+		xor_encrypt(password.c_str(), password.size(), destination)
+{ }
+
+ssize_t xor_encrypt::write(const void* data, size_t size)
+{
+	auto* tmp = copy_data(data, size);
+	
+	for (decltype(tmp) i = tmp; i < tmp + size; ++i)
+	encrypt_byte(*i, this->passwd, this->passwd_iter, this->passwd_size)
+	
+	return dest->write(tmp, size);
+}
+
+void xor_encrypt::close_fd()
+{
+	this->dest->close();
+}
+
+inline xor_encrypt& operator<<(const std::string& dest_name, xor_encrypt& xe)
+{
+	xe.dest = new file_destination(dest_name);
+	return xe;
+}
+
+template <character char_t>
+inline xor_encrypt& operator<<(xor_encrypt& xe, const std::basic_string<char_t>& res)
+{
+	xe.write(res.c_str(), res.size() * sizeof(char_t));
+	return xe;
+}
+
+template <character char_t>
+inline xor_encrypt& operator<<(xor_encrypt& xe, const char_t* res)
+{
+	xe.write(res, static_strlen(res) * sizeof(char_t));
+	return xe;
+}
+
+#endif //XOR_CRYPT
