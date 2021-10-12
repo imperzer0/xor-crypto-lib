@@ -138,7 +138,10 @@ public:
 class file_source : public source
 {
 public:
-	explicit file_source(const char* filename) : source(::fopen(filename, "rb")->_fileno)
+	explicit file_source(FILE* file_ptr) : source(file_ptr->_fileno)
+	{ }
+	
+	explicit file_source(const char* filename) : file_source(::fopen(filename, "rb"))
 	{ }
 	
 	explicit file_source(const std::string& filename) : file_source(filename.c_str())
@@ -149,6 +152,33 @@ public:
 		struct stat st{ };
 		::fstat(this->fd, &st);
 		return st.st_size;
+	}
+	
+	ssize_t read(void* data, size_t size) const override
+	{
+		return source::read(data, size);
+	}
+};
+
+
+class stream_source : public source
+{
+public:
+	explicit stream_source(int stream_fd) : source(stream_fd)
+	{ }
+	
+	explicit stream_source(FILE* stream_ptr) : stream_source(stream_ptr->_fileno)
+	{ }
+	
+	[[nodiscard]] size_t available() override
+	{
+		long available;
+		::ioctl(this->fd, FIONREAD, &available);
+		if (available <= 0)
+		{
+			::ioctl(this->fd, FIOQSIZE, &available);
+		}
+		return available;
 	}
 	
 	ssize_t read(void* data, size_t size) const override
@@ -239,13 +269,33 @@ public:
 	}
 };
 
+
 class file_destination : public destination
 {
 public:
-	explicit file_destination(const char* filename) : destination(::fopen(filename, "wb")->_fileno)
+	explicit file_destination(FILE* file_ptr) : destination(file_ptr->_fileno)
+	{ }
+	
+	explicit file_destination(const char* filename) : file_destination(::fopen(filename, "wb"))
 	{ }
 	
 	explicit file_destination(const std::string& filename) : file_destination(filename.c_str())
+	{ }
+	
+	ssize_t write(const void* data, size_t size) const override
+	{
+		return destination::write(data, size);
+	}
+};
+
+
+class stream_destination : public destination
+{
+public:
+	explicit stream_destination(int stream_fd) : destination(stream_fd)
+	{ }
+	
+	explicit stream_destination(FILE* stream_ptr) : stream_destination(stream_ptr->_fileno)
 	{ }
 	
 	ssize_t write(const void* data, size_t size) const override
@@ -294,6 +344,10 @@ private:
 	
 	friend inline xor_decrypt& operator>>(xor_decrypt& xd, std::string& res);
 	
+	friend inline xor_decrypt& operator>>(FILE* source_file, xor_decrypt& xd);
+	
+	friend inline xor_decrypt& operator>>(int source_fd, xor_decrypt& xd);
+	
 	source* src;
 };
 
@@ -324,6 +378,18 @@ inline xor_decrypt& operator>>(const std::string& source_name, xor_decrypt& xd)
 	return xd;
 }
 
+inline xor_decrypt& operator>>(FILE* source_file, xor_decrypt& xd)
+{
+	xd.src = new file_source(source_file);
+	return xd;
+}
+
+inline xor_decrypt& operator>>(int source_fd, xor_decrypt& xd)
+{
+	xd.src = new stream_source(source_fd);
+	return xd;
+}
+
 inline xor_decrypt& operator>>(xor_decrypt& xd, std::string& res)
 {
 	size_t size = xd.src->available();
@@ -346,6 +412,10 @@ public:
 
 private:
 	friend inline xor_encrypt& operator<<(const std::string& dest_name, xor_encrypt& xe);
+	
+	friend inline xor_encrypt& operator<<(FILE* dest_file, xor_encrypt& xe);
+	
+	friend inline xor_encrypt& operator<<(int dest_fd, xor_encrypt& xe);
 	
 	template <character char_t>
 	friend inline xor_encrypt& operator<<(xor_encrypt& xe, const std::basic_string<char_t>& res);
@@ -382,6 +452,18 @@ void xor_encrypt::close_fd()
 inline xor_encrypt& operator<<(const std::string& dest_name, xor_encrypt& xe)
 {
 	xe.dest = new file_destination(dest_name);
+	return xe;
+}
+
+inline xor_encrypt& operator<<(FILE* dest_file, xor_encrypt& xe)
+{
+	xe.dest = new file_destination(dest_file);
+	return xe;
+}
+
+inline xor_encrypt& operator<<(int dest_fd, xor_encrypt& xe)
+{
+	xe.dest = new stream_destination(dest_fd);
 	return xe;
 }
 
