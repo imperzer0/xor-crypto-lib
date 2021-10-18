@@ -38,12 +38,108 @@ size_t char_t_strlen(const char_t* str)
 byte* copy_data(const void* data, size_t size)
 {
 	auto* tmp = static_cast<const byte*>(data);
-	auto* res = new byte[size];
+	auto* res = size ? new byte[size] : nullptr;
 	
 	for (size_t i = 0; i < size; ++i)
 		res[i] = tmp[i];
 	
 	return res;
+}
+
+byte* copy_data_to(const void* data, byte* to, size_t size)
+{
+	auto* tmp = static_cast<const byte*>(data);
+	
+	for (size_t i = 0; i < size; ++i)
+		to[i] = tmp[i];
+	
+	return to;
+}
+
+
+class buffer
+{
+public:
+	explicit buffer();
+	
+	explicit buffer(size_t size);
+	
+	buffer(const buffer& another);
+	
+	buffer(buffer&& another) noexcept;
+	
+	[[nodiscard]] size_t capacity() const;
+	
+	void realloc(size_t size);
+	
+	void dealloc();
+	
+	[[nodiscard]] void* clone_mem() const;
+	
+	[[nodiscard]] size_t clone_mem(void* res, size_t size) const;
+	
+	[[nodiscard]] const void* get() const;
+	
+	void take(const void* data, size_t size);
+
+private:
+	byte* m_mem;
+	size_t m_capacity;
+};
+
+buffer::buffer() : m_mem(nullptr), m_capacity(0)
+{ }
+
+buffer::buffer(size_t size) : m_mem(new byte[size]), m_capacity(size)
+{ }
+
+buffer::buffer(const buffer& another) : m_mem(copy_data(another.m_mem, another.m_capacity)), m_capacity(another.m_capacity)
+{ }
+
+buffer::buffer(buffer&& another) noexcept: m_mem(another.m_mem), m_capacity(another.m_capacity)
+{
+	another.m_capacity = 0;
+	another.m_mem = nullptr;
+}
+
+size_t buffer::capacity() const
+{
+	return this->m_capacity;
+}
+
+void buffer::realloc(size_t size)
+{
+	delete[] this->m_mem;
+	this->m_mem = new byte[size];
+}
+
+void buffer::dealloc()
+{
+	delete[] this->m_mem;
+}
+
+void* buffer::clone_mem() const
+{
+	return copy_data(this->m_mem, this->m_capacity);
+}
+
+size_t buffer::clone_mem(void* res, size_t size) const
+{
+	size_t ret_size = std::min(size, this->m_capacity);
+	copy_data_to(this->m_mem, static_cast<byte*>(res), ret_size);
+	return ret_size;
+}
+
+const void* buffer::get() const
+{
+	return this->m_mem;
+}
+
+void buffer::take(const void* data, size_t size)
+{
+	delete[] this->m_mem;
+	this->m_capacity = size;
+	this->m_mem = copy_data(data, size);
 }
 
 
@@ -60,7 +156,7 @@ public:
 	
 	virtual size_t available() = 0;
 	
-	virtual ssize_t read(void* data, size_t size) const;
+	virtual ssize_t read(void* data, size_t size);
 	
 	void close();
 
@@ -90,9 +186,10 @@ source::operator bool() const
 	return this->last_read > 0;
 }
 
-ssize_t source::read(void* data, size_t size) const
+ssize_t source::read(void* data, size_t size)
 {
 	ssize_t read = ::read(this->fd, data, size);
+	this->last_read = read;
 	if (read < 0)
 	{
 		char error[128];
@@ -128,8 +225,9 @@ public:
 		return 0;
 	}
 	
-	ssize_t read(void*, size_t) const override
+	ssize_t read(void*, size_t) override
 	{
+		this->last_read = -1;
 		return -1;
 	}
 };
@@ -154,7 +252,7 @@ public:
 		return st.st_size;
 	}
 	
-	ssize_t read(void* data, size_t size) const override
+	ssize_t read(void* data, size_t size) override
 	{
 		return source::read(data, size);
 	}
@@ -181,10 +279,31 @@ public:
 		return available;
 	}
 	
-	ssize_t read(void* data, size_t size) const override
+	ssize_t read(void* data, size_t size) override
 	{
 		return source::read(data, size);
 	}
+};
+
+
+class buffer_source : public source
+{
+public:
+	explicit buffer_source(const buffer& buffer) : source(-1), buf(buffer)
+	{ }
+	
+	[[nodiscard]] size_t available() override
+	{
+		return this->buf.capacity();
+	}
+	
+	ssize_t read(void* data, size_t size) override
+	{
+		return this->buf.clone_mem(data, size);
+	}
+
+private:
+	const buffer& buf;
 };
 
 
@@ -200,7 +319,7 @@ public:
 	
 	operator bool() const;
 	
-	virtual ssize_t write(const void* data, size_t size) const;
+	virtual ssize_t write(const void* data, size_t size);
 	
 	void close();
 
@@ -230,9 +349,10 @@ destination::operator bool() const
 	return this->last_write > 0;
 }
 
-ssize_t destination::write(const void* data, size_t size) const
+ssize_t destination::write(const void* data, size_t size)
 {
 	ssize_t wrote = ::write(this->fd, data, size);
+	this->last_write = wrote;
 	if (wrote < 0)
 	{
 		char error[128];
@@ -263,8 +383,9 @@ public:
 	empty_destination() : destination(-1)
 	{ }
 	
-	ssize_t write(const void*, size_t) const override
+	ssize_t write(const void*, size_t) override
 	{
+		this->last_write = -1;
 		return -1;
 	}
 };
@@ -282,7 +403,7 @@ public:
 	explicit file_destination(const std::string& filename) : file_destination(filename.c_str())
 	{ }
 	
-	ssize_t write(const void* data, size_t size) const override
+	ssize_t write(const void* data, size_t size) override
 	{
 		return destination::write(data, size);
 	}
@@ -298,10 +419,28 @@ public:
 	explicit stream_destination(FILE* stream_ptr) : stream_destination(stream_ptr->_fileno)
 	{ }
 	
-	ssize_t write(const void* data, size_t size) const override
+	ssize_t write(const void* data, size_t size) override
 	{
 		return destination::write(data, size);
 	}
+};
+
+
+class buffer_destination : public destination
+{
+public:
+	explicit buffer_destination(buffer& buffer) : destination(-1), buf(buffer)
+	{ }
+	
+	ssize_t write(const void* data, size_t size) override
+	{
+		this->buf.take(data, size);
+		this->last_write = size;
+		return size;
+	}
+
+private:
+	buffer& buf;
 };
 
 
@@ -337,17 +476,13 @@ public:
 	
 	ssize_t read(void* data, size_t size);
 	
+	void set_source(source* src);
+	
+	size_t available() const;
+	
 	void close_fd();
 
 private:
-	friend inline xor_decrypt& operator>>(const std::string& source_name, xor_decrypt& xd);
-	
-	friend inline xor_decrypt& operator>>(xor_decrypt& xd, std::string& res);
-	
-	friend inline xor_decrypt& operator>>(FILE* source_file, xor_decrypt& xd);
-	
-	friend inline xor_decrypt& operator>>(int source_fd, xor_decrypt& xd);
-	
 	source* src;
 };
 
@@ -367,34 +502,57 @@ ssize_t xor_decrypt::read(void* data, size_t size)
 	return res;
 }
 
+void xor_decrypt::set_source(source* src)
+{
+	this->src = src;
+}
+
+size_t xor_decrypt::available() const
+{
+	return this->src->available();
+}
+
 void xor_decrypt::close_fd()
 {
 	src->close();
 }
 
+inline xor_decrypt& operator>>(const char* source_name, xor_decrypt& xd)
+{
+	xd.set_source(new file_source(source_name));
+	return xd;
+}
+
 inline xor_decrypt& operator>>(const std::string& source_name, xor_decrypt& xd)
 {
-	xd.src = new file_source(source_name);
+	xd.set_source(new file_source(source_name));
+	return xd;
+}
+
+inline xor_decrypt& operator>>(const buffer& source_buf, xor_decrypt& xd)
+{
+	xd.set_source(new buffer_source(source_buf));
 	return xd;
 }
 
 inline xor_decrypt& operator>>(FILE* source_file, xor_decrypt& xd)
 {
-	xd.src = new file_source(source_file);
+	xd.set_source(new file_source(source_file));
 	return xd;
 }
 
 inline xor_decrypt& operator>>(int source_fd, xor_decrypt& xd)
 {
-	xd.src = new stream_source(source_fd);
+	xd.set_source(new stream_source(source_fd));
 	return xd;
 }
 
 inline xor_decrypt& operator>>(xor_decrypt& xd, std::string& res)
 {
-	size_t size = xd.src->available();
+	size_t size = xd.available();
 	res.resize(size);
-	xd.read(res.data(), size);
+	char* data = res.data();
+	xd.read(data, size);
 	return xd;
 }
 
@@ -408,21 +566,11 @@ public:
 	
 	ssize_t write(const void* data, size_t size);
 	
+	void set_destination(destination* dest);
+	
 	void close_fd();
 
 private:
-	friend inline xor_encrypt& operator<<(const std::string& dest_name, xor_encrypt& xe);
-	
-	friend inline xor_encrypt& operator<<(FILE* dest_file, xor_encrypt& xe);
-	
-	friend inline xor_encrypt& operator<<(int dest_fd, xor_encrypt& xe);
-	
-	template <character char_t>
-	friend inline xor_encrypt& operator<<(xor_encrypt& xe, const std::basic_string<char_t>& res);
-	
-	template <character char_t>
-	friend inline xor_encrypt& operator<<(xor_encrypt& xe, const char_t* res);
-	
 	destination* dest;
 };
 
@@ -444,26 +592,43 @@ ssize_t xor_encrypt::write(const void* data, size_t size)
 	return dest->write(tmp, size);
 }
 
+void xor_encrypt::set_destination(destination* dest)
+{
+	this->dest = dest;
+}
+
 void xor_encrypt::close_fd()
 {
 	this->dest->close();
 }
 
+inline xor_encrypt& operator<<(const char* dest_name, xor_encrypt& xe)
+{
+	xe.set_destination(new file_destination(dest_name));
+	return xe;
+}
+
 inline xor_encrypt& operator<<(const std::string& dest_name, xor_encrypt& xe)
 {
-	xe.dest = new file_destination(dest_name);
+	xe.set_destination(new file_destination(dest_name));
+	return xe;
+}
+
+inline xor_encrypt& operator<<(buffer& dest_buf, xor_encrypt& xe)
+{
+	xe.set_destination(new buffer_destination(dest_buf));
 	return xe;
 }
 
 inline xor_encrypt& operator<<(FILE* dest_file, xor_encrypt& xe)
 {
-	xe.dest = new file_destination(dest_file);
+	xe.set_destination(new file_destination(dest_file));
 	return xe;
 }
 
 inline xor_encrypt& operator<<(int dest_fd, xor_encrypt& xe)
 {
-	xe.dest = new stream_destination(dest_fd);
+	xe.set_destination(new stream_destination(dest_fd));
 	return xe;
 }
 
