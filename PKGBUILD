@@ -1,6 +1,6 @@
 pkgname="xor-crypto-lib"
 epoch=1
-pkgver=3
+pkgver=4
 pkgrel=1
 pkgdesc="xor encryption c++ library"
 arch=("x86_64")
