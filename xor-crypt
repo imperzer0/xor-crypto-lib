@@ -49,6 +49,7 @@ byte* copy_data(const void* data, size_t size)
 byte* copy_data_to(const void* data, byte* to, size_t size)
 {
 	auto* tmp = static_cast<const byte*>(data);
+	if (data == to) return to;
 	
 	for (size_t i = 0; i < size; ++i)
 		to[i] = tmp[i];
