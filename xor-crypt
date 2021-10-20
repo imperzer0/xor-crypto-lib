@@ -459,7 +459,7 @@ public:
 	
 	ssize_t write(const void* data, size_t size) override
 	{
-		this->buf.from(data, size);
+		this->buf.take(const_cast<void*>(data), size);
 		this->last_write = size;
 		return size;
 	}

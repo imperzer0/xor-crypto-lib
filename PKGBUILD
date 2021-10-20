@@ -1,7 +1,7 @@
 pkgname="xor-crypto-lib"
 epoch=1
 pkgver=5
-pkgrel=1
+pkgrel=2
 pkgdesc="xor encryption c++ library"
 arch=("x86_64")
 url="https://github.com/imperzer0/xor-crypto-lib"
