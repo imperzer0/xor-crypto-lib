@@ -680,7 +680,6 @@ inline xor_encrypt& operator<<(xor_encrypt& xe, const char_t* data)
 	return xe;
 }
 
-template <character char_t>
 inline xor_encrypt& operator<<(xor_encrypt& xe, const buffer& data)
 {
 	xe.write(data.get(), data.capacity());
