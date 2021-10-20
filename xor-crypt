@@ -61,96 +61,106 @@ byte* copy_data_to(const void* data, byte* to, size_t size)
 class buffer
 {
 public:
-	explicit buffer();
+	explicit inline buffer();
 	
-	explicit buffer(void* buffer, size_t size);
+	explicit inline buffer(void* buffer, size_t size);
 	
-	explicit buffer(size_t size);
+	explicit inline buffer(size_t size);
 	
-	buffer(const buffer& another);
+	inline buffer(const buffer& another);
 	
-	buffer(buffer&& another) noexcept;
+	inline buffer(buffer&& another) noexcept;
 	
-	[[nodiscard]] size_t capacity() const;
+	[[nodiscard]] inline size_t capacity() const;
 	
-	void realloc(size_t size);
+	inline void realloc(size_t size);
 	
-	void dealloc();
+	inline void dealloc();
 	
-	[[nodiscard]] void* clone_mem() const;
+	[[nodiscard]] inline void* clone_mem() const;
 	
-	[[nodiscard]] size_t clone_mem(void* res, size_t size) const;
+	inline size_t clone_mem(void* res, size_t size) const;
 	
-	[[nodiscard]] const void* get() const;
+	[[nodiscard]] inline const void* get() const;
 	
-	void from(const void* data, size_t size);
+	[[nodiscard]] inline void* abort_mem();
 	
-	void take(void* data, size_t size);
+	
+	inline void from(const void* data, size_t size);
+	
+	inline void take(void* data, size_t size);
 
 private:
 	byte* m_mem;
 	size_t m_capacity;
 };
 
-buffer::buffer() : m_mem(nullptr), m_capacity(0)
+inline buffer::buffer() : m_mem(nullptr), m_capacity(0)
 { }
 
-buffer::buffer(size_t size) : m_mem(new byte[size]), m_capacity(size)
+inline buffer::buffer(size_t size) : m_mem(new byte[size]), m_capacity(size)
 { }
 
-buffer::buffer(void* buffer, size_t size) : m_mem(static_cast<byte*>(buffer)), m_capacity(size)
+inline buffer::buffer(void* buffer, size_t size) : m_mem(static_cast<byte*>(buffer)), m_capacity(size)
 { }
 
-buffer::buffer(const buffer& another) : m_mem(copy_data(another.m_mem, another.m_capacity)), m_capacity(another.m_capacity)
+inline buffer::buffer(const buffer& another) : m_mem(copy_data(another.m_mem, another.m_capacity)), m_capacity(another.m_capacity)
 { }
 
-buffer::buffer(buffer&& another) noexcept: m_mem(another.m_mem), m_capacity(another.m_capacity)
+inline buffer::buffer(buffer&& another) noexcept: m_mem(another.m_mem), m_capacity(another.m_capacity)
 {
 	another.m_capacity = 0;
 	another.m_mem = nullptr;
 }
 
-size_t buffer::capacity() const
+inline size_t buffer::capacity() const
 {
 	return this->m_capacity;
 }
 
-void buffer::realloc(size_t size)
+inline void buffer::realloc(size_t size)
 {
 	delete[] this->m_mem;
 	this->m_mem = new byte[size];
 }
 
-void buffer::dealloc()
+inline void buffer::dealloc()
 {
 	delete[] this->m_mem;
 }
 
-void* buffer::clone_mem() const
+inline void* buffer::clone_mem() const
 {
 	return copy_data(this->m_mem, this->m_capacity);
 }
 
-size_t buffer::clone_mem(void* res, size_t size) const
+inline size_t buffer::clone_mem(void* res, size_t size) const
 {
 	size_t ret_size = std::min(size, this->m_capacity);
 	copy_data_to(this->m_mem, static_cast<byte*>(res), ret_size);
 	return ret_size;
 }
 
-const void* buffer::get() const
+inline const void* buffer::get() const
 {
 	return this->m_mem;
 }
 
-void buffer::from(const void* data, size_t size)
+inline void* buffer::abort_mem()
+{
+	void* res = this->m_mem;
+	this->m_mem = nullptr;
+	return res;
+}
+
+inline void buffer::from(const void* data, size_t size)
 {
 	delete[] this->m_mem;
 	this->m_capacity = size;
 	this->m_mem = copy_data(data, size);
 }
 
-void buffer::take(void* data, size_t size)
+inline void buffer::take(void* data, size_t size)
 {
 	delete[] this->m_mem;
 	this->m_capacity = size;
@@ -571,6 +581,15 @@ inline xor_decrypt& operator>>(xor_decrypt& xd, std::string& res)
 	return xd;
 }
 
+inline xor_decrypt& operator>>(xor_decrypt& xd, buffer& res)
+{
+	size_t size = xd.available();
+	auto* data = new byte[size];
+	xd.read(data, size);
+	res.take(data, size);
+	return xd;
+}
+
 
 class xor_encrypt : public xor_crypt
 {
@@ -648,16 +667,23 @@ inline xor_encrypt& operator<<(int dest_fd, xor_encrypt& xe)
 }
 
 template <character char_t>
-inline xor_encrypt& operator<<(xor_encrypt& xe, const std::basic_string<char_t>& res)
+inline xor_encrypt& operator<<(xor_encrypt& xe, const std::basic_string<char_t>& data)
 {
-	xe.write(res.c_str(), res.size() * sizeof(char_t));
+	xe.write(data.c_str(), data.size() * sizeof(char_t));
 	return xe;
 }
 
 template <character char_t>
-inline xor_encrypt& operator<<(xor_encrypt& xe, const char_t* res)
+inline xor_encrypt& operator<<(xor_encrypt& xe, const char_t* data)
 {
-	xe.write(res, static_strlen(res) * sizeof(char_t));
+	xe.write(data, static_strlen(data) * sizeof(char_t));
+	return xe;
+}
+
+template <character char_t>
+inline xor_encrypt& operator<<(xor_encrypt& xe, const buffer& data)
+{
+	xe.write(data.get(), data.capacity());
 	return xe;
 }
 
