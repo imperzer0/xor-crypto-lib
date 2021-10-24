@@ -28,14 +28,14 @@ concept string_type = std::is_same_v<string_t, std::string> || std::is_same_v<st
 
 
 template <character char_t>
-size_t char_t_strlen(const char_t* str)
+static inline constexpr size_t char_t_strlen(const char_t* str)
 {
 	size_t size = 0;
 	for (; *str; ++size, ++str);
 	return size;
 }
 
-byte* copy_data(const void* data, size_t size)
+static inline constexpr byte* copy_data(const void* data, size_t size)
 {
 	auto* tmp = static_cast<const byte*>(data);
 	auto* res = size ? new byte[size] : nullptr;
@@ -46,7 +46,7 @@ byte* copy_data(const void* data, size_t size)
 	return res;
 }
 
-byte* copy_data_to(const void* data, byte* to, size_t size)
+static inline constexpr byte* copy_data_to(const void* data, byte* to, size_t size)
 {
 	auto* tmp = static_cast<const byte*>(data);
 	if (data == to) return to;
@@ -476,9 +476,15 @@ class xor_crypt
 {
 public:
 	void set_password(const void* password, size_t size);
+	
+	void reset_iter();
 
 protected:
 	xor_crypt(const void* password, size_t size);
+	
+	xor_crypt(const xor_crypt& xc);
+	
+	xor_crypt(xor_crypt&& xc) noexcept;
 	
 	byte* passwd;
 	size_t passwd_size;
@@ -488,10 +494,26 @@ protected:
 xor_crypt::xor_crypt(const void* password, size_t size) : passwd(copy_data(password, size)), passwd_size(size)
 { }
 
+xor_crypt::xor_crypt(const xor_crypt& xc) : passwd(::copy_data(xc.passwd, xc.passwd_size)), passwd_size(xc.passwd_size),
+											passwd_iter(xc.passwd_iter)
+{ }
+
+xor_crypt::xor_crypt(xor_crypt&& xc) noexcept: passwd(xc.passwd), passwd_size(xc.passwd_size), passwd_iter(xc.passwd_iter)
+{
+	xc.passwd = nullptr;
+	xc.passwd_size = 0;
+	xc.passwd_iter = 0;
+}
+
 void xor_crypt::set_password(const void* password, size_t size)
 {
 	this->passwd = copy_data(password, size);
 	this->passwd_size = size;
+}
+
+void xor_crypt::reset_iter()
+{
+	this->passwd_iter = 0;
 }
 
 
@@ -501,6 +523,10 @@ public:
 	xor_decrypt(const void* password, size_t size, source& source);
 	
 	xor_decrypt(const std::string& password, source& source);
+	
+	xor_decrypt(const xor_decrypt& xd) = default;
+	
+	xor_decrypt(xor_decrypt&& xd) noexcept;
 	
 	ssize_t read(void* data, size_t size);
 	
@@ -519,6 +545,11 @@ xor_decrypt::xor_decrypt(const void* password, size_t size, source& source = *ne
 
 xor_decrypt::xor_decrypt(const std::string& password, source& source = *new empty_source) : xor_decrypt(password.c_str(), password.size(), source)
 { }
+
+xor_decrypt::xor_decrypt(xor_decrypt&& xd) noexcept: xor_crypt(std::move(xd)), src(xd.src)
+{
+	xd.src = nullptr;
+}
 
 ssize_t xor_decrypt::read(void* data, size_t size)
 {
@@ -601,6 +632,10 @@ public:
 	
 	xor_encrypt(const std::string& password, destination& destination);
 	
+	xor_encrypt(const xor_encrypt& xe) = default;
+	
+	xor_encrypt(xor_encrypt&& xe)  noexcept;
+	
 	ssize_t write(const void* data, size_t size);
 	
 	void set_destination(destination* dest);
@@ -618,6 +653,11 @@ xor_encrypt::xor_encrypt(const void* password, size_t size, destination& destina
 xor_encrypt::xor_encrypt(const std::string& password, destination& destination = *new empty_destination) :
 		xor_encrypt(password.c_str(), password.size(), destination)
 { }
+
+xor_encrypt::xor_encrypt(xor_encrypt&& xe) noexcept: xor_crypt(std::move(xe)), dest(xe.dest)
+{
+	xe.dest = nullptr;
+}
 
 ssize_t xor_encrypt::write(const void* data, size_t size)
 {
