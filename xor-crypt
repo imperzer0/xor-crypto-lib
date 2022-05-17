@@ -15,13 +15,14 @@
 
 #define LOG_COLOR color::faint << color::yellow
 #define ERR_COLOR color::red
+#define PRINT_PREFIX _detail_::_log_ << log_console::l_lock << log_console::l_localtime << l_location
 
-#define LOG (_detail_::_log_ << log_console::l_lock << log_console::l_localtime << l_location << LOG_COLOR)
-#define ERR (_detail_::_err_ << log_console::l_lock << log_console::l_localtime << l_location << ERR_COLOR)
+#define LOG (PRINT_PREFIX << LOG_COLOR)
+#define ERR (PRINT_PREFIX << ERR_COLOR)
 
-#define ENDENT color::reset << log_console::l_endent
+#define ENDENTLN color::reset << log_console::l_endent
 
-namespace xorcrypt
+namespace xc
 {
 	namespace pipe
 	{
@@ -33,10 +34,10 @@ namespace xorcrypt
 		};
 	}
 	
-	namespace _detail_
+	namespace _detail_ __attribute__((visibility("hidden")))
 	{
-		log_console _log_(stdout);
-		log_console _err_(stderr);
+		extern log_console _log_;
+		extern log_console _err_;
 	}
 	
 	typedef unsigned char byte;
@@ -46,34 +47,27 @@ namespace xorcrypt
 	concept string_type = std::is_same_v<string_t, std::string> || std::is_same_v<string_t, std::wstring>;
 	
 	
-	template <character char_t>
-	static inline constexpr size_t char_t_strlen(const char_t* str)
+	static inline void turn_logging(bool status = false)
 	{
-		size_t size = 0;
-		for (; *str; ++size, ++str);
-		return size;
-	}
-	
-	static inline constexpr byte* copy_data(const void* data, size_t size)
-	{
-		auto* tmp = static_cast<const byte*>(data);
-		auto* res = size ? new byte[size] : nullptr;
-		
-		for (size_t i = 0; i < size; ++i)
-			res[i] = tmp[i];
-		
-		return res;
+		xc::_detail_::_log_ << (status ? log_console::on : log_console::off);
 	}
 	
 	static inline constexpr byte* copy_data_to(const void* data, byte* to, size_t size)
 	{
 		auto* tmp = static_cast<const byte*>(data);
 		if (data == to) return to;
+		if (!to || !data) return nullptr;
 		
 		for (size_t i = 0; i < size; ++i)
 			to[i] = tmp[i];
 		
 		return to;
+	}
+	
+	static inline constexpr byte* copy_data(const void* data, size_t size)
+	{
+		auto* res = size && data ? new byte[size] : nullptr;
+		return copy_data_to(data, res, size);
 	}
 	
 	
@@ -98,7 +92,7 @@ namespace xorcrypt
 			another.m_mem = nullptr;
 			LOG << "Pointer " << static_cast<void*>(this->m_mem) << color::reset << LOG_COLOR << " from buffer " << static_cast<void*>(&another)
 				<< color::reset << LOG_COLOR << " moved to buffer " << static_cast<void*>(this) << color::reset << LOG_COLOR << "\nCapacity = "
-				<< this->m_capacity << ENDENT;
+				<< this->m_capacity << ENDENTLN;
 		}
 		
 		[[nodiscard]] inline size_t capacity() const
@@ -107,19 +101,19 @@ namespace xorcrypt
 		inline void realloc(size_t size)
 		{
 			LOG << "Deallocating buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << color::reset << LOG_COLOR
-				<< "..." << ENDENT;
+				<< "..." << ENDENTLN;
 			delete[] this->m_mem;
 			this->m_capacity = size;
 			this->m_mem = new byte[size];
-			LOG << "Allocated new buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENT;
+			LOG << "Allocated new buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENTLN;
 		}
 		
 		inline void dealloc()
 		{
 			LOG << "Deallocating buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << color::reset << LOG_COLOR
-				<< "..." << ENDENT;
+				<< "..." << ENDENTLN;
 			delete[] this->m_mem;
-			LOG << "Deallocated buffer " << this->m_mem << ENDENT;
+			LOG << "Deallocated buffer " << this->m_mem << ENDENTLN;
 			this->m_capacity = 0;
 			this->m_mem = nullptr;
 		}
@@ -143,7 +137,7 @@ namespace xorcrypt
 		inline void* abort_mem()
 		{
 			void* res = this->m_mem;
-			LOG << "Released buffer " << m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENT;
+			LOG << "Released buffer " << m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENTLN;
 			this->m_capacity = 0;
 			this->m_mem = nullptr;
 			return res;
@@ -155,7 +149,7 @@ namespace xorcrypt
 			this->m_capacity = size;
 			this->m_mem = copy_data(data, size);
 			LOG << "Created buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << color::reset << LOG_COLOR
-				<< " from given " << data << ENDENT;
+				<< " from given " << data << ENDENTLN;
 		}
 		
 		inline void take(void* data, size_t size)
@@ -163,7 +157,7 @@ namespace xorcrypt
 			delete[] this->m_mem;
 			this->m_capacity = size;
 			this->m_mem = static_cast<byte*>(data);
-			LOG << "Captured buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENT;
+			LOG << "Captured buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENTLN;
 		}
 	
 	private:
@@ -192,7 +186,7 @@ namespace xorcrypt
 			{
 				char error[128];
 				::strerror_r(errno, error, 128);
-				ERR << "error " << errno << " in read() " << color::italic << error << ENDENT;
+				ERR << "error " << errno << " in read() " << color::italic << error << ENDENTLN;
 			}
 			return read;
 		}
@@ -208,7 +202,7 @@ namespace xorcrypt
 				{
 					char error[128];
 					::strerror_r(errno, error, 128);
-					ERR << "error " << errno << " in close() " << color::italic << error << ENDENT;
+					ERR << "error " << errno << " in close() " << color::italic << error << ENDENTLN;
 				}
 				this->fd = -1;
 			}
@@ -329,7 +323,7 @@ namespace xorcrypt
 			{
 				char error[128];
 				::strerror_r(errno, error, 128);
-				ERR << "error " << errno << " in write() " << color::italic << error << ENDENT;
+				ERR << "error " << errno << " in write() " << color::italic << error << ENDENTLN;
 			}
 			return wrote;
 		}
@@ -345,7 +339,7 @@ namespace xorcrypt
 				{
 					char error[128];
 					::strerror_r(errno, error, 128);
-					ERR << "error " << errno << " in close() " << color::italic << error << ENDENT;
+					ERR << "error " << errno << " in close() " << color::italic << error << ENDENTLN;
 				}
 				this->fd = -1;
 			}
@@ -433,26 +427,26 @@ namespace xorcrypt
 			this->passwd = copy_data(password, size);
 			this->passwd_size = size;
 			LOG << "xor_crypt object " << static_cast<void*>(this) << color::reset << LOG_COLOR
-				<< "'s password changed (check password manually with debugger)!" << ENDENT;
+				<< "'s password changed (check password manually with debugger)!" << ENDENTLN;
 		}
 		
 		inline void reset_iter()
 		{
 			this->passwd_iter = 0;
-			LOG << "xor_crypt object " << static_cast<void*>(this) << color::reset << LOG_COLOR << "'s password iterator reset!" << ENDENT;
+			LOG << "xor_crypt object " << static_cast<void*>(this) << color::reset << LOG_COLOR << "'s password iterator reset!" << ENDENTLN;
 		}
 		
 		inline void crypt(byte* data, size_t size)
 		{
 			LOG << "Crypting buffer " << static_cast<void*>(data) << color::reset << LOG_COLOR << " of size" << size << color::reset << LOG_COLOR
-				<< ENDENT;
+				<< ENDENTLN;
 			for (byte* i = data; i < data + size; ++i)
 			{
 				*i ^= this->passwd[this->passwd_iter++];
 				this->passwd_iter %= this->passwd_size;
 			}
 			LOG << "Crypted buffer " << static_cast<void*>(data) << color::reset << LOG_COLOR << ". Password iterator = " << this->passwd_iter
-				<< ENDENT;
+				<< ENDENTLN;
 		}
 	
 	protected:

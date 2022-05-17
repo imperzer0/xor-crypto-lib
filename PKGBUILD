@@ -1,19 +1,31 @@
 pkgname="xor-crypto-lib"
-epoch=1
-pkgver=8
+pkgver=1.9
 pkgrel=0
 pkgdesc="xor encryption c++ library"
+author="imperzer0"
+url="https://github.com/$author/$pkgname"
 arch=("x86_64")
-url="https://github.com/imperzer0/xor-crypto-lib"
-license=('GPL')
-depends=("log-console>=1.13-1")
-makedepends=("cmake>=3.0")
-lib_file="xor-crypt"
-source=("local://$lib_file")
-md5sums=("SKIP")
-# install=xor-crypto-lib.install
+license=('GPL3')
+depends=("log-console>=1.18-1")
+makedepends=()
+
+_srcprefix="local:/"
+_libfiles=("xor-crypt" "xor-crypt-defs")
+
+for _libfile in ${_libfiles[@]}
+{
+    source=(${source[@]} "$_srcprefix/$_libfile")
+}
+
+for _libfile in ${_libfiles[@]}
+{
+    md5sums=(${md5sums[@]} "SKIP")
+}
 
 package()
 {
-	install -Dm755 "./$lib_file" "$pkgdir/usr/include/$lib_file"
+    for _libfile in ${_libfiles[@]}
+    {
+        install -Dm644 "./$_libfile" "$pkgdir/usr/include/$_libfile"
+    }
 }
