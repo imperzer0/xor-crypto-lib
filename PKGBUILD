@@ -1,6 +1,6 @@
 pkgname="xor-crypto-lib"
 pkgver=1.10
-pkgrel=0
+pkgrel=1
 pkgdesc="xor encryption c++ library"
 author="imperzer0"
 url="https://github.com/$author/$pkgname"
@@ -14,7 +14,7 @@ _libfiles=("xor-crypt" "xor-crypt-defs")
 
 for _libfile in ${_libfiles[@]}
 {
-    source=(${source[@]} "$_srcprefix/$_libfile")
+    source=(${source[@]} "$_srcprefix/$_libfile.hpp")
 }
 
 for _libfile in ${_libfiles[@]}
@@ -26,6 +26,6 @@ package()
 {
     for _libfile in ${_libfiles[@]}
     {
-        install -Dm644 "./$_libfile" "$pkgdir/usr/include/$_libfile"
+        install -Dm644 "./$_libfile.hpp" "$pkgdir/usr/include/$_libfile"
     }
 }

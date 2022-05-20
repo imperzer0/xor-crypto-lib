@@ -174,9 +174,6 @@ namespace xc
 			this->m_mem = static_cast<byte*>(data);
 			LOG << "Captured buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENTLN;
 		}
-		
-		~buffer()
-		{ dealloc(); }
 	
 	private:
 		byte* m_mem;
@@ -225,9 +222,6 @@ namespace xc
 				this->fd = -1;
 			}
 		}
-		
-		~source()
-		{ close(); }
 	
 	protected:
 		friend class xor_decrypt;
@@ -265,12 +259,6 @@ namespace xc
 		inline explicit file_source(FILE* file_ptr) : source(file_ptr->_fileno)
 		{ }
 		
-		inline explicit file_source(const char* filename) : file_source(::fopen(filename, "rb"))
-		{ }
-		
-		inline explicit file_source(const std::string& filename) : file_source(filename.c_str())
-		{ }
-		
 		[[nodiscard]] inline size_t available() override
 		{
 			struct stat st{ };
@@ -280,8 +268,6 @@ namespace xc
 		
 		inline ssize_t read(void* data, size_t size) override
 		{ return source::read(data, size); }
-		
-		~file_source() = default;
 	};
 	
 	
@@ -307,8 +293,6 @@ namespace xc
 		
 		inline ssize_t read(void* data, size_t size) override
 		{ return source::read(data, size); }
-		
-		~stream_source() = default;
 	};
 	
 	
@@ -323,8 +307,6 @@ namespace xc
 		
 		inline ssize_t read(void* data, size_t size) override
 		{ return this->buf->clone_mem(data, size); }
-		
-		~buffer_source() = default;
 	
 	private:
 		std::shared_ptr<const buffer> buf;
@@ -371,9 +353,6 @@ namespace xc
 				this->fd = -1;
 			}
 		}
-		
-		~destination()
-		{ close(); }
 	
 	protected:
 		friend class xor_encrypt;
@@ -397,8 +376,6 @@ namespace xc
 			this->last_write = -1;
 			return -1;
 		}
-		
-		~empty_destination() = default;
 	};
 	
 	
@@ -416,8 +393,6 @@ namespace xc
 		
 		ssize_t write(const void* data, size_t size) override
 		{ return destination::write(data, size); }
-		
-		~file_destination() = default;
 	};
 	
 	
@@ -432,8 +407,6 @@ namespace xc
 		
 		ssize_t write(const void* data, size_t size) override
 		{ return destination::write(data, size); }
-		
-		~stream_destination() = default;
 	};
 	
 	
@@ -449,8 +422,6 @@ namespace xc
 			this->last_write = size;
 			return size;
 		}
-		
-		~buffer_destination() = default;
 	
 	private:
 		std::shared_ptr<buffer> buf;

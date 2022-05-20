@@ -5,7 +5,7 @@
 #ifndef XOR_CRYPT_DEFS
 #define XOR_CRYPT_DEFS
 
-#include "xor-crypt"
+#include "xor-crypt.hpp"
 #include "log-console-defs"
 
 namespace xc::_detail_
