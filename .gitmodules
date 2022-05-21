@@ -1,6 +1,0 @@
-[submodule "log-console/log-console"]
-	path = log-console/log-console
-	url = https://github.com/imperzer0/log-console.git
-[submodule "log-console"]
-	path = log-console
-	url = https://github.com/imperzer0/log-console.git

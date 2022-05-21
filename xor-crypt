@@ -8,17 +8,7 @@
 #include <string>
 #include <unistd.h>
 #include <stdexcept>
-
-#ifdef TEST_IS_RUNNING
-
-#include "log-console/log-console"
-
-#else
-
 #include "log-console"
-
-#endif
-
 #include <cstring>
 #include <utility>
 #include <sys/ioctl.h>
@@ -309,7 +299,7 @@ namespace xc
 	class buffer_source : public source
 	{
 	public:
-		inline explicit buffer_source(std::shared_ptr<const buffer> buffer) : source(-1), buf(std::move(buffer))
+		inline explicit buffer_source(std::shared_ptr<buffer> buffer) : source(-1), buf(std::move(buffer))
 		{ }
 		
 		[[nodiscard]] inline size_t available() override
@@ -319,7 +309,7 @@ namespace xc
 		{ return this->buf->clone_mem(data, size); }
 	
 	private:
-		std::shared_ptr<const buffer> buf;
+		std::shared_ptr<buffer> buf;
 	};
 	
 	
@@ -584,9 +574,8 @@ namespace xc
 	inline xor_decrypt& operator>>(xor_decrypt& xd, std::shared_ptr<buffer> res)
 	{
 		size_t size = xd.available();
-		auto* data = new byte[size];
-		xd.read(data, size);
-		res->take(data, size);
+		res->realloc(size);
+		xd.read(res->get(), size);
 		return xd;
 	}
 	
