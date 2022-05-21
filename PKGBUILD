@@ -26,6 +26,6 @@ package()
 {
     for _libfile in ${_libfiles[@]}
     {
-        install -Dm644 "./$_libfile.hpp" "$pkgdir/usr/include/$_libfile"
+        install -Dm644 "./$_libfile" "$pkgdir/usr/include/$_libfile"
     }
 }
