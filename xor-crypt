@@ -8,7 +8,11 @@
 #include <string>
 #include <unistd.h>
 #include <stdexcept>
+#ifdef TEST_RUNNING
+#include "log-console/log-console"
+#else
 #include "log-console"
+#endif
 #include <cstring>
 #include <utility>
 #include <sys/ioctl.h>
