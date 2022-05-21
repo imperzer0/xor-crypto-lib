@@ -6,7 +6,16 @@
 #define XOR_CRYPT_DEFS
 
 #include "xor-crypt"
+
+#ifdef TEST_IS_RUNNING
+
+#include "log-console/log-console-defs"
+
+#else
+
 #include "log-console-defs"
+
+#endif
 
 namespace xc::_detail_
 {
