@@ -1,4 +1,4 @@
-#include "xor-crypt-defs.hpp"
+#include "xor-crypt-defs"
 
 int main()
 {

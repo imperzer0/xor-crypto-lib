@@ -1,6 +1,6 @@
 pkgname="xor-crypto-lib"
 pkgver=1.10
-pkgrel=1
+pkgrel=2
 pkgdesc="xor encryption c++ library"
 author="imperzer0"
 url="https://github.com/$author/$pkgname"
@@ -14,7 +14,7 @@ _libfiles=("xor-crypt" "xor-crypt-defs")
 
 for _libfile in ${_libfiles[@]}
 {
-    source=(${source[@]} "$_srcprefix/$_libfile.hpp")
+    source=(${source[@]} "$_srcprefix/$_libfile")
 }
 
 for _libfile in ${_libfiles[@]}
