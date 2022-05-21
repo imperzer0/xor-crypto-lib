@@ -8,11 +8,17 @@
 #include <string>
 #include <unistd.h>
 #include <stdexcept>
-#ifdef TEST_RUNNING
+
+#ifdef TEST_IS_RUNNING
+
 #include "log-console/log-console"
+
 #else
+
 #include "log-console"
+
 #endif
+
 #include <cstring>
 #include <utility>
 #include <sys/ioctl.h>
@@ -389,12 +395,6 @@ namespace xc
 		explicit file_destination(FILE* file_ptr) : destination(file_ptr->_fileno)
 		{ }
 		
-		explicit file_destination(const char* filename) : file_destination(::fopen(filename, "wb"))
-		{ }
-		
-		explicit file_destination(const std::string& filename) : file_destination(filename.c_str())
-		{ }
-		
 		ssize_t write(const void* data, size_t size) override
 		{ return destination::write(data, size); }
 	};
@@ -554,18 +554,6 @@ namespace xc
 	
 	/// xor-decrypt declarations
 	
-	inline xor_decrypt& operator>>(const char* source_name, xor_decrypt& xd)
-	{
-		xd.set_source(std::make_shared<file_source>(source_name));
-		return xd;
-	}
-	
-	inline xor_decrypt& operator>>(const std::string& source_name, xor_decrypt& xd)
-	{
-		xd.set_source(std::make_shared<file_source>(source_name));
-		return xd;
-	}
-	
 	inline xor_decrypt& operator>>(std::shared_ptr<buffer> source_buf, xor_decrypt& xd)
 	{
 		xd.set_source(std::make_shared<buffer_source>(source_buf));
@@ -603,18 +591,6 @@ namespace xc
 	}
 	
 	/// xor-encrypt declarations
-	
-	inline xor_encrypt& operator<<(const char* dest_name, xor_encrypt& xe)
-	{
-		xe.set_destination(std::make_shared<file_destination>(dest_name));
-		return xe;
-	}
-	
-	inline xor_encrypt& operator<<(const std::string& dest_name, xor_encrypt& xe)
-	{
-		xe.set_destination(std::make_shared<file_destination>(dest_name));
-		return xe;
-	}
 	
 	inline xor_encrypt& operator<<(std::shared_ptr<buffer> dest_buf, xor_encrypt& xe)
 	{

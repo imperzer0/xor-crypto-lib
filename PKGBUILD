@@ -1,6 +1,6 @@
 pkgname="xor-crypto-lib"
 pkgver=1.10
-pkgrel=2
+pkgrel=3
 pkgdesc="xor encryption c++ library"
 author="imperzer0"
 url="https://github.com/$author/$pkgname"

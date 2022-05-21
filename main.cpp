@@ -4,13 +4,14 @@ int main()
 {
 	xc::xor_encrypt xe("nopass");
 	
-	"output.txt" << xe << "dfg" << " opana" << " popalo" << std::string(" some buf data");
+	::fopen("output.txt", "wb") << xe << "dfg" << " opana" << " popalo" << std::string(" some buf data");
 	xe.close_fd();
 	
 	std::string all_data;
 	
 	xc::xor_decrypt xd("nopass");
-	"output.txt" >> xd >> all_data;
+	::fopen("output.txt", "rb") >> xd >> all_data;
+	xd.close_fd();
 	
 	std::cout << all_data << "\n";
 	
