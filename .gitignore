@@ -4,4 +4,4 @@
 /CMakeLists.txt
 /main.cpp
 # Project exclude paths
-/cmake-build-debug/
+/cmake-build-*/
