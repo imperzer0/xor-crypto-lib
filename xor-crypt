@@ -75,18 +75,6 @@ namespace xc
 	class buffer
 	{
 	public:
-		template <typename... _Args>
-		inline static std::shared_ptr<buffer> make_buffer(_Args... _args) noexcept
-		{
-			return std::make_shared<buffer>(_args...);
-		}
-		
-		template <typename... _Args>
-		inline static std::shared_ptr<const buffer> make_const_buffer(_Args... _args) noexcept
-		{
-			return std::make_shared<const buffer>(_args...);
-		}
-		
 		inline buffer() noexcept: m_mem(nullptr), m_capacity(0)
 		{ }
 		
@@ -103,76 +91,74 @@ namespace xc
 		{
 			another.m_capacity = 0;
 			another.m_mem = nullptr;
-			LOG << "Pointer " << static_cast<void*>(this->m_mem) << color::reset << LOG_COLOR << " from buffer " << static_cast<void*>(&another)
+			LOG << "Pointer " << static_cast<void*>(m_mem) << color::reset << LOG_COLOR << " from buffer " << static_cast<void*>(&another)
 				<< color::reset << LOG_COLOR << " moved to buffer " << static_cast<void*>(this) << color::reset << LOG_COLOR << "\nCapacity = "
-				<< this->m_capacity << ENDENTLN;
+				<< m_capacity << ENDENTLN;
 		}
-	
-	public:
 		
 		[[nodiscard]] inline size_t capacity() const
-		{ return this->m_capacity; }
+		{ return m_capacity; }
 		
 		inline void realloc(size_t size)
 		{
-			LOG << "Deallocating buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << color::reset << LOG_COLOR
+			LOG << "Deallocating buffer " << m_mem << color::reset << LOG_COLOR << " of size " << m_capacity << color::reset << LOG_COLOR
 				<< "..." << ENDENTLN;
-			delete[] this->m_mem;
-			this->m_capacity = size;
-			this->m_mem = new byte[size];
-			LOG << "Allocated new buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENTLN;
+			delete[] m_mem;
+			m_capacity = size;
+			m_mem = new byte[size];
+			LOG << "Allocated new buffer " << m_mem << color::reset << LOG_COLOR << " of size " << m_capacity << ENDENTLN;
 		}
 		
 		inline void dealloc()
 		{
-			LOG << "Deallocating buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << color::reset << LOG_COLOR
+			LOG << "Deallocating buffer " << m_mem << color::reset << LOG_COLOR << " of size " << m_capacity << color::reset << LOG_COLOR
 				<< "..." << ENDENTLN;
-			delete[] this->m_mem;
-			LOG << "Deallocated buffer " << this->m_mem << ENDENTLN;
-			this->m_capacity = 0;
-			this->m_mem = nullptr;
+			delete[] m_mem;
+			LOG << "Deallocated buffer " << m_mem << ENDENTLN;
+			m_capacity = 0;
+			m_mem = nullptr;
 		}
 		
 		[[nodiscard]] inline void* clone_mem() const
-		{ return copy_data(this->m_mem, this->m_capacity); }
+		{ return copy_data(m_mem, m_capacity); }
 		
 		inline size_t clone_mem(void* res, size_t size) const
 		{
-			size_t ret_size = std::min(size, this->m_capacity);
-			copy_data_to(this->m_mem, static_cast<byte*>(res), ret_size);
+			size_t ret_size = std::min(size, m_capacity);
+			copy_data_to(m_mem, static_cast<byte*>(res), ret_size);
 			return ret_size;
 		}
 		
 		[[nodiscard]] inline const void* get() const
-		{ return this->m_mem; }
+		{ return m_mem; }
 		
 		[[nodiscard]] inline void* get()
-		{ return this->m_mem; }
+		{ return m_mem; }
 		
 		inline void* abort_mem()
 		{
-			void* res = this->m_mem;
-			LOG << "Released buffer " << m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENTLN;
-			this->m_capacity = 0;
-			this->m_mem = nullptr;
+			void* res = m_mem;
+			LOG << "Released buffer " << m_mem << color::reset << LOG_COLOR << " of size " << m_capacity << ENDENTLN;
+			m_capacity = 0;
+			m_mem = nullptr;
 			return res;
 		}
 		
 		inline void from(const void* data, size_t size)
 		{
-			delete[] this->m_mem;
-			this->m_capacity = size;
-			this->m_mem = copy_data(data, size);
-			LOG << "Created buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << color::reset << LOG_COLOR
+			delete[] m_mem;
+			m_capacity = size;
+			m_mem = copy_data(data, size);
+			LOG << "Created buffer " << m_mem << color::reset << LOG_COLOR << " of size " << m_capacity << color::reset << LOG_COLOR
 				<< " from given " << data << ENDENTLN;
 		}
 		
 		inline void take(void* data, size_t size)
 		{
-			delete[] this->m_mem;
-			this->m_capacity = size;
-			this->m_mem = static_cast<byte*>(data);
-			LOG << "Captured buffer " << this->m_mem << color::reset << LOG_COLOR << " of size " << this->m_capacity << ENDENTLN;
+			delete[] m_mem;
+			m_capacity = size;
+			m_mem = static_cast<byte*>(data);
+			LOG << "Captured buffer " << m_mem << color::reset << LOG_COLOR << " of size " << m_capacity << ENDENTLN;
 		}
 	
 	private:
@@ -189,14 +175,14 @@ namespace xc
 		inline source(source&&) = default;
 		
 		inline operator bool() const
-		{ return this->last_read > 0; }
+		{ return last_read > 0; }
 		
 		[[nodiscard]] inline virtual size_t available() = 0;
 		
 		inline virtual ssize_t read(void* data, size_t size)
 		{
-			ssize_t read = ::read(this->fd, data, size);
-			this->last_read = read;
+			ssize_t read = ::read(fd, data, size);
+			last_read = read;
 			if (read < 0)
 			{
 				char error[128];
@@ -207,21 +193,23 @@ namespace xc
 		}
 		
 		[[nodiscard]] inline ssize_t get_last_read() const
-		{ return this->last_read; }
+		{ return last_read; }
 		
 		inline void close()
 		{
-			if (this->fd > 0)
+			if (fd > 0)
 			{
-				if (::close(this->fd) < 0)
+				if (::close(fd) < 0)
 				{
 					char error[128];
 					::strerror_r(errno, error, 128);
 					ERR << "error " << errno << " in close() " << color::italic << error << ENDENTLN;
 				}
-				this->fd = -1;
+				fd = -1;
 			}
 		}
+		
+		inline ~source() = default;
 	
 	protected:
 		friend class xor_decrypt;
@@ -247,7 +235,7 @@ namespace xc
 		
 		inline ssize_t read(void*, size_t) override
 		{
-			this->last_read = -1;
+			last_read = -1;
 			return -1;
 		}
 	};
@@ -262,7 +250,7 @@ namespace xc
 		[[nodiscard]] inline size_t available() override
 		{
 			struct stat st{ };
-			::fstat(this->fd, &st);
+			::fstat(fd, &st);
 			return st.st_size;
 		}
 		
@@ -283,11 +271,9 @@ namespace xc
 		[[nodiscard]] inline size_t available() override
 		{
 			long available;
-			::ioctl(this->fd, FIONREAD, &available);
+			::ioctl(fd, FIONREAD, &available);
 			if (available <= 0)
-			{
-				::ioctl(this->fd, FIOQSIZE, &available);
-			}
+				::ioctl(fd, FIOQSIZE, &available);
 			return available;
 		}
 		
@@ -299,17 +285,17 @@ namespace xc
 	class buffer_source : public source
 	{
 	public:
-		inline explicit buffer_source(std::shared_ptr<buffer> buffer) : source(-1), buf(std::move(buffer))
+		inline explicit buffer_source(buffer* buffer) : source(-1), buf(buffer)
 		{ }
 		
 		[[nodiscard]] inline size_t available() override
-		{ return this->buf->capacity(); }
+		{ return buf->capacity(); }
 		
 		inline ssize_t read(void* data, size_t size) override
-		{ return this->buf->clone_mem(data, size); }
+		{ return buf->clone_mem(data, size); }
 	
 	private:
-		std::shared_ptr<buffer> buf;
+		buffer* buf;
 	};
 	
 	
@@ -322,12 +308,12 @@ namespace xc
 		inline destination(destination&&) = default;
 		
 		inline operator bool() const
-		{ return this->last_write > 0; }
+		{ return last_write > 0; }
 		
 		inline virtual ssize_t write(const void* data, size_t size)
 		{
-			ssize_t wrote = ::write(this->fd, data, size);
-			this->last_write = wrote;
+			ssize_t wrote = ::write(fd, data, size);
+			last_write = wrote;
 			if (wrote < 0)
 			{
 				char error[128];
@@ -338,21 +324,23 @@ namespace xc
 		}
 		
 		[[nodiscard]] inline ssize_t get_last_write() const
-		{ return this->last_write; }
+		{ return last_write; }
 		
 		inline void close()
 		{
-			if (this->fd > 0)
+			if (fd > 0)
 			{
-				if (::close(this->fd) < 0)
+				if (::close(fd) < 0)
 				{
 					char error[128];
 					::strerror_r(errno, error, 128);
 					ERR << "error " << errno << " in close() " << color::italic << error << ENDENTLN;
 				}
-				this->fd = -1;
+				fd = -1;
 			}
 		}
+		
+		inline ~destination() = default;
 	
 	protected:
 		friend class xor_encrypt;
@@ -373,7 +361,7 @@ namespace xc
 		
 		ssize_t write(const void*, size_t) override
 		{
-			this->last_write = -1;
+			last_write = -1;
 			return -1;
 		}
 	};
@@ -407,18 +395,18 @@ namespace xc
 	class buffer_destination : public destination
 	{
 	public:
-		explicit buffer_destination(std::shared_ptr<buffer> buffer) : destination(-1), buf(std::move(buffer))
+		explicit buffer_destination(buffer* buffer) : destination(-1), buf(buffer)
 		{ }
 		
 		ssize_t write(const void* data, size_t size) override
 		{
-			this->buf->take(const_cast<void*>(data), size);
-			this->last_write = size;
+			buf->take(const_cast<void*>(data), size);
+			last_write = size;
 			return size;
 		}
 	
 	private:
-		std::shared_ptr<buffer> buf;
+		buffer* buf;
 	};
 	
 	
@@ -427,15 +415,15 @@ namespace xc
 	public:
 		inline void set_password(const void* password, size_t size)
 		{
-			this->passwd = copy_data(password, size);
-			this->passwd_size = size;
+			passwd = copy_data(password, size);
+			passwd_size = size;
 			LOG << "xor_crypt object " << static_cast<void*>(this) << color::reset << LOG_COLOR
 				<< "'s password changed (check password manually with debugger)!" << ENDENTLN;
 		}
 		
 		inline void reset_iter()
 		{
-			this->passwd_iter = 0;
+			passwd_iter = 0;
 			LOG << "xor_crypt object " << static_cast<void*>(this) << color::reset << LOG_COLOR << "'s password iterator reset!" << ENDENTLN;
 		}
 		
@@ -445,10 +433,10 @@ namespace xc
 				<< ENDENTLN;
 			for (byte* i = data; i < data + size; ++i)
 			{
-				*i ^= this->passwd[this->passwd_iter++];
-				this->passwd_iter %= this->passwd_size;
+				*i ^= passwd[passwd_iter++];
+				passwd_iter %= passwd_size;
 			}
-			LOG << "Crypted buffer " << static_cast<void*>(data) << color::reset << LOG_COLOR << ". Password iterator = " << this->passwd_iter
+			LOG << "Crypted buffer " << static_cast<void*>(data) << color::reset << LOG_COLOR << ". Password iterator = " << passwd_iter
 				<< ENDENTLN;
 		}
 	
@@ -476,11 +464,11 @@ namespace xc
 	class xor_decrypt : public xor_crypt
 	{
 	public:
-		inline xor_decrypt(const void* password, size_t size, std::shared_ptr<source> source = std::make_shared<empty_source>())
+		inline xor_decrypt(const void* password, size_t size, source* source = nullptr)
 				: xor_crypt(password, size), src(source)
 		{ }
 		
-		inline explicit xor_decrypt(const std::string& password, std::shared_ptr<source> source = std::make_shared<empty_source>())
+		inline explicit xor_decrypt(const std::string& password, source* source = nullptr)
 				: xor_decrypt(password.c_str(), password.size(), source)
 		{ }
 		
@@ -492,31 +480,31 @@ namespace xc
 		inline ssize_t read(void* data, size_t size)
 		{
 			ssize_t res = src->read(data, size);
-			this->crypt(static_cast<byte*>(data), res);
+			crypt(static_cast<byte*>(data), res);
 			return res;
 		}
 		
-		inline void set_source(std::shared_ptr<source>&& _src)
-		{ this->src = _src; }
+		inline void set_source(source* source)
+		{ src = std::unique_ptr<class source>(source); }
 		
 		[[nodiscard]] inline size_t available() const
-		{ return this->src->available(); }
+		{ return src->available(); }
 		
 		void close_fd()
 		{ src->close(); }
 	
 	private:
-		std::shared_ptr<source> src;
+		std::unique_ptr<source> src;
 	};
 	
 	class xor_encrypt : public xor_crypt
 	{
 	public:
-		inline xor_encrypt(const void* password, size_t size, std::shared_ptr<destination> destination = std::make_shared<empty_destination>())
+		inline xor_encrypt(const void* password, size_t size, destination* destination = nullptr)
 				: xor_crypt(password, size), dest(destination)
 		{ }
 		
-		inline explicit xor_encrypt(const std::string& password, std::shared_ptr<destination> destination = std::make_shared<empty_destination>())
+		inline explicit xor_encrypt(const std::string& password, destination* destination = nullptr)
 				: xor_encrypt(password.c_str(), password.size(), destination)
 		{ }
 		
@@ -528,37 +516,37 @@ namespace xc
 		inline ssize_t write(const void* data, size_t size)
 		{
 			auto* tmp = copy_data(data, size);
-			this->crypt(tmp, size);
+			crypt(tmp, size);
 			return dest->write(tmp, size);
 		}
 		
-		inline void set_destination(std::shared_ptr<destination>&& _dest)
-		{ this->dest = _dest; }
+		inline void set_destination(destination* _dest)
+		{ dest = std::unique_ptr<destination>(_dest); }
 		
 		inline void close_fd()
-		{ this->dest->close(); }
+		{ dest->close(); }
 	
 	private:
-		std::shared_ptr<destination> dest;
+		std::unique_ptr<destination> dest;
 	};
 	
 	/// xor-decrypt declarations
 	
-	inline xor_decrypt& operator>>(std::shared_ptr<buffer> source_buf, xor_decrypt& xd)
+	inline xor_decrypt& operator>>(buffer* source_buf, xor_decrypt& xd)
 	{
-		xd.set_source(std::make_shared<buffer_source>(source_buf));
+		xd.set_source(new buffer_source(source_buf));
 		return xd;
 	}
 	
 	inline xor_decrypt& operator>>(FILE* source_file, xor_decrypt& xd)
 	{
-		xd.set_source(std::make_shared<file_source>(source_file));
+		xd.set_source(new file_source(source_file));
 		return xd;
 	}
 	
 	inline xor_decrypt& operator>>(int source_fd, xor_decrypt& xd)
 	{
-		xd.set_source(std::make_shared<stream_source>(source_fd));
+		xd.set_source(new stream_source(source_fd));
 		return xd;
 	}
 	
@@ -571,7 +559,7 @@ namespace xc
 		return xd;
 	}
 	
-	inline xor_decrypt& operator>>(xor_decrypt& xd, std::shared_ptr<buffer> res)
+	inline xor_decrypt& operator>>(xor_decrypt& xd, buffer* res)
 	{
 		size_t size = xd.available();
 		res->realloc(size);
@@ -581,41 +569,41 @@ namespace xc
 	
 	/// xor-encrypt declarations
 	
-	inline xor_encrypt& operator<<(std::shared_ptr<buffer> dest_buf, xor_encrypt& xe)
+	inline xor_encrypt& operator<<(buffer* dest_buf, xor_encrypt& xe)
 	{
-		xe.set_destination(std::make_shared<buffer_destination>(dest_buf));
+		xe.set_destination(new buffer_destination(dest_buf));
 		return xe;
 	}
 	
 	inline xor_encrypt& operator<<(FILE* dest_file, xor_encrypt& xe)
 	{
-		xe.set_destination(std::make_shared<file_destination>(dest_file));
+		xe.set_destination(new file_destination(dest_file));
 		return xe;
 	}
 	
 	inline xor_encrypt& operator<<(int dest_fd, xor_encrypt& xe)
 	{
-		xe.set_destination(std::make_shared<stream_destination>(dest_fd));
+		xe.set_destination(new stream_destination(dest_fd));
 		return xe;
 	}
 	
-	template <character char_t>
+	template <std::integral char_t>
 	inline xor_encrypt& operator<<(xor_encrypt& xe, const std::basic_string<char_t>& data)
 	{
 		xe.write(data.c_str(), data.size() * sizeof(char_t));
 		return xe;
 	}
 	
-	template <character char_t>
+	template <std::integral char_t>
 	inline xor_encrypt& operator<<(xor_encrypt& xe, const char_t* data)
 	{
 		xe.write(data, static_strlen(data) * sizeof(char_t));
 		return xe;
 	}
 	
-	inline xor_encrypt& operator<<(xor_encrypt& xe, std::shared_ptr<const buffer> data)
+	inline xor_encrypt& operator<<(xor_encrypt& xe, const buffer* data)
 	{
-		xe.write(data.get(), data->capacity());
+		xe.write(data->get(), data->capacity());
 		return xe;
 	}
 }

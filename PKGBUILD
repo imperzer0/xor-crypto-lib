@@ -1,5 +1,5 @@
 pkgname="xor-crypto-lib"
-pkgver=1.11
+pkgver=1.12
 pkgrel=0
 pkgdesc="xor encryption c++ library"
 author="imperzer0"
